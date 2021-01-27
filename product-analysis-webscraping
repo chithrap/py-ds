@@ -1,0 +1,151 @@
+import bs4  
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from scipy import stats
+
+
+import plotly_express as px
+from urllib.request import urlopen as uReq  
+from bs4 import BeautifulSoup as soup  
+myurl = "https://www.flipkart.com/tablets/pr?sid=tyy,hry&marketplace=FLIPKART"  
+uclient = uReq(myurl)       
+page_html = uclient.read()  
+uclient.close()  
+
+psoup = soup(page_html, "html.parser")  
+
+products_list = list()
+prices_list = list()
+ratings_list= list()
+modelnames_list= list()
+brandnames_list = list()
+
+rams_list= list()
+colors_list= list()
+displays_list= list()
+
+connectivities_list= list()
+
+
+page_urls = list() 
+for containers in psoup.findAll('div',{'class':'_2MImiq'}):    
+        page_href_list = containers.findAll('a',{'class':'ge-49M'}) 
+        #uncomment the below 2 lines to get all the search 10 pages 
+        #for a in a_list:
+        #       page_urls.append('https://www.flipkart.com'+ a['href'])
+        #uncomment the below 2 lines to get single    search   page
+        page_href= page_href_list[0]
+        page_urls.append('https://www.flipkart.com'+ page_href['href'])             
+
+for url in page_urls:
+    print(url)
+    uclient = uReq(url)       
+    page_html = uclient.read()  
+    uclient.close()  
+    psoup = soup(page_html, "html.parser")  
+
+    prod_urls = list() 
+    for containers in psoup.findAll('div',{'class':'_13oc-S'}):           
+        for a in containers:
+            a_list = a.findAll('a',{'class':'_1fQZEK'})
+            #print(a_list['href'])
+            #prod_urls.append('https://www.flipkart.com'+ a_list['href'])
+            
+            for a in a_list:
+                   prod_urls.append('https://www.flipkart.com'+ a['href'])
+        
+    for p_url in prod_urls:
+        uclient = uReq(p_url)
+        page_html = uclient.read() 
+        uclient.close()
+        psoup = soup(page_html, "html.parser")  
+          
+        all_procuct_items = psoup.find('div', attrs={'class' : '_3k-BhJ'})
+        all_procuct_items = all_procuct_items.findAll('tr', attrs={'class' : '_1s_Smc row'})
+        for procuct_item in all_procuct_items:
+            dataname = procuct_item.findAll("td", {"class": "_1hKmbr col col-3-12"})
+            datadetails = procuct_item.findAll("td", {"class": "URwL2w col col-9-12"})
+            """color = dict()   
+            display = dict()
+            modelname = dict()   
+            connectivity = dict() 
+        
+            for names in dataname:
+                if( 'Name' in names.text):            
+                    for details in datadetails:
+                        modelname['modelname'] = details.text
+                        modelnames.append(details.text)            
+                elif( 'Color' in names.text):            
+                    for details in datadetails:
+                        color['color'] = details.text
+                        colors.append(details.text)                        
+                elif("Display" in names.text):            
+                    for details in datadetails:
+                        display['display'] = details.text
+                        displays.append(details.text)       
+                elif("Connectivity" in names.text):            
+                    for details in datadetails:
+                        connectivity['connectivity'] = details.text
+                        connectivities.append(details.text)
+
+                      
+          """
+        container= psoup.findAll("div",{"class":"_1AtVbE col-12-12"})  
+
+        #container variable contains the html of product title which is stored in div tag and class is "_1AtVbE col-12-12"  
+
+       
+        
+        for product_item in container: 
+            product_dict = dict()
+            rating_dict= dict()
+            price_dict = dict()
+            brandname_dict = dict()
+            n = product_item.findAll("span",{"class":"B_NuCI"})  
+            p = product_item.findAll("div",{"class":"_30jeq3 _16Jk6d"})    
+            
+            r = product_item.findAll("div",{"class":"_2d4LTz"})  
+            for i in n: 
+                product_dict['name'] = i.text
+                strtmp = i.text.split(" ")
+                brandname_dict['brandname'] = strtmp[0]
+                brandnames_list.append(strtmp[0])
+                products_list.append(i.text)
+            for j in p:  
+                jStr = j.text
+                jStr = jStr.replace("₹", "")
+                jStr = jStr.replace(",", "")
+                price_dict['price'] = int( jStr)
+                prices_list.append(int( jStr))
+            for k in r: 
+                #print (i.text)
+                rating_dict['rating'] = k.text 
+                ratings_list.append(k.text)
+
+              
+                
+print ("Number of items in the products list = ", len(products_list))
+print ("Number of items in the prices list = ", len(prices_list))
+print ("Number of items in the ratings list = ", len(ratings_list))
+
+df = pd.DataFrame({'Brand':brandnames_list,'Price':prices_list,'Ratings':ratings_list,'ProductName':products_list})
+df.to_csv ('export_products_dataframe.csv')
+
+df['Price'] = df['Price'].astype(np.float)
+sns.boxplot(x=df['Price'])
+
+
+sns.catplot(x = "Price",       # x variable name
+            y = "Brand",       # y variable name
+            hue = "Ratings",  # group variable name
+            data = df,     # dataframe to plot
+            kind = "bar")
+
+
+df.groupby('Brand').plot(x='Brand', y='Price')
+
+sns.barplot(x = 'Brand',
+            y = 'Price',
+            data = df)
